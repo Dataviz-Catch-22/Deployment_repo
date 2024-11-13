@@ -371,6 +371,3 @@ def update_heatmap_on_hover(hovered_date_str):
                 )
 
     return dcc.Graph(figure=heatmap_fig, config={'displayModeBar': False})
-
-if __name__ == '__main__':
-    app.run_server(debug=True)
