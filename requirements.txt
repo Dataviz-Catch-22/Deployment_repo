@@ -5,3 +5,4 @@ plotly==5.15.0
 pymongo==4.3.3
 flask-caching==2.0.1
 gunicorn
+python-dotenv==1.0.1
