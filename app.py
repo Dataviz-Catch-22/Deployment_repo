@@ -10,6 +10,7 @@ from flask_caching import Cache
 
 # Initialize Dash app
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+server = app.server
 
 # Set up caching
 cache = Cache(app.server, config={'CACHE_TYPE': 'simple'})
