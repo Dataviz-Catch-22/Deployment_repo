@@ -3,6 +3,7 @@ from dash import dcc, html, Input, Output, State
 import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.graph_objects as go
+from plotly.colors import qualitative
 #import plotly.express as px
 from pymongo import MongoClient
 import config
@@ -104,9 +105,6 @@ def load_all_data():
 
 events_df, covid_infections, stock_data = load_all_data()
 
-# Modify this function to add animation frames for each selected stock
-import plotly.graph_objects as go
-
 # Function to break long events into multiple lines
 def split_event_text(event_text, line_length=100):
         words = event_text.split(' ')
@@ -192,7 +190,15 @@ def create_dual_axis_chart(stock_data, covid_infections, ticker_names, events_df
 app.layout = html.Div([  
     dbc.Row([  
         dbc.Col([  
-            html.H1("The Economic Story of COVID", style={'textAlign': 'center', 'color': 'black'}),  
+            html.H1("The Economic Story of COVID", style={'textAlign': 'center', 'color': 'black'}),
+            dcc.Checklist(
+                id='colorblind-toggle',
+                options=[
+                    {'label': 'Colorblind Friendly Mode', 'value': 'colorblind'}
+                ],
+                value=[],  # Default value (empty means standard mode)
+                inline= True
+            ),  
             dcc.Dropdown(  
                 id='ticker-dropdown',  
                 options=[{'label': name, 'value': ticker} for ticker, name in ticker_options.items()],  
@@ -211,15 +217,21 @@ app.layout = html.Div([
 # Line chart callback
 @app.callback(
     Output('line-chart', 'figure'),
-    Input('ticker-dropdown', 'value')
+    [Input('ticker-dropdown', 'value'),
+     Input('colorblind-toggle', 'value')]
 )
-def update_line_chart(tickers):
+def update_line_chart(tickers, colorblind_mode):
     # Use the cached data for all tickers
     events_df, covid_infections, stock_data = load_all_data()
 
     # Filter the stock data for the selected tickers
     selected_stock_data = {ticker: stock_data[ticker] for ticker in tickers}
     ticker_names = {ticker: ticker_options.get(ticker, ticker) for ticker in tickers}
+
+    if 'colorblind' in colorblind_mode:
+        colors = qualitative.Safe  # Colorblind-friendly palette
+    else:
+        colors = qualitative.Plotly
 
     # Create the figure with the selected stock data
     fig = go.Figure()
@@ -228,14 +240,14 @@ def update_line_chart(tickers):
     cutoff_date = events_df.index.max()
 
     # Stock data line chart for each selected ticker, filtered up to the cutoff date
-    for ticker, data in selected_stock_data.items():
+    for i, (ticker, data) in enumerate(selected_stock_data.items()):
         filtered_data = data[data.index <= cutoff_date]
         fig.add_trace(go.Scatter(
             x=filtered_data.index,
             y=filtered_data['indexed_close'],
             mode='lines',
             name=ticker_names[ticker],
-            line=dict(width=2),
+            line=dict(width=2, color=colors[i % len(colors)]),
             yaxis='y1',  # Primary y-axis
             visible=True  # Ensure all selected tickers are visible
         ))
@@ -250,14 +262,16 @@ def update_line_chart(tickers):
         marker=dict(color='blue', size=8, opacity=0),  # Invisible markers
         hovertemplate="<b>Event:</b><br>%{customdata}<extra></extra>"
     ))
-
+    
+    bar_color = 'red' if 'colorblind' not in colorblind_mode else colors[-1]
+    
     # COVID-19 cases bar chart on secondary y-axis, filtered up to the cutoff date
     filtered_covid_infections = covid_infections[covid_infections.index <= cutoff_date]
     fig.add_trace(go.Bar(
         x=filtered_covid_infections.index,
         y=filtered_covid_infections['new_cases_smoothed'],
         name='COVID-19 Cases (Smoothed)',
-        marker=dict(color='red', opacity=0.4),
+        marker=dict(color=bar_color, opacity=0.4),
         yaxis='y2'  # Secondary y-axis
     ))
 
@@ -318,9 +332,10 @@ def calculate_heatmap_data_cached():
 # Updated heatmap callback that shows all stocks in a 4x3 grid, irrespective of selection
 @app.callback(
     Output('heatmap-container', 'children'),
-    Input('hover-store', 'data')
+    [Input('hover-store', 'data'),
+     Input('colorblind-toggle', 'value')]
 )
-def update_heatmap_on_hover(hovered_date_str):
+def update_heatmap_on_hover(hovered_date_str, colorblind_mode):
     # Retrieve precomputed heatmap data to avoid redundant processing
     all_stock_data = calculate_heatmap_data_cached()
     if all_stock_data.empty:
@@ -341,13 +356,19 @@ def update_heatmap_on_hover(hovered_date_str):
     grid_tickers = [tickers_list[i:i+3] for i in range(0, 12, 3)]
     heatmap_values = [[(heatmap_pivot.loc[ticker].values[0] - 100) if ticker in heatmap_pivot.index else None 
                        for ticker in row] for row in grid_tickers]
+    
+    if colorblind_mode:
+        colorscale = [[0.0, "red"], [0.5, "white"], [1.0, "#546494"]]
+    else:
+        # Explicitly set a palette that includes red
+        colorscale = [[0.0, "red"], [0.5, "white"], [1.0, "green"]]
 
     # Create heatmap figure
     heatmap_fig = go.Figure(data=go.Heatmap(
         z=heatmap_values,
         x=[(f"Column {i+1}") for i in range(3)],
         y=[f"Row {i+1}" for i in range(4)],
-        colorscale=[(0.0, "red"), (0.5, "white"), (1.0, "green")],
+        colorscale=colorscale,
         zmin=-100, zmax=100,
         colorbar=dict(title="", tickvals=[-100, 0, 100])
     ))
