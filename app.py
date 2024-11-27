@@ -4,6 +4,7 @@ import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.colors import qualitative
+from plotly.colors import qualitative
 #import plotly.express as px
 from pymongo import MongoClient
 import config
@@ -11,7 +12,6 @@ from flask_caching import Cache
 
 # Initialize Dash app
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
-server = app.server
 
 # Set up caching
 cache = Cache(app.server, config={'CACHE_TYPE': 'simple'})
@@ -206,7 +206,8 @@ app.layout = html.Div([
                 multi=True,  
                 placeholder="Select one or more tickers",  
                 style={'backgroundColor': 'white', 'color': 'black'}  
-            ),  
+            ),
+ 
             dcc.Graph(id='line-chart', style={'height': '60vh', 'marginBottom' : '0px'}),
             dcc.Store(id='hover-store'),
             html.Div(id='heatmap-container', style={'height': '10vh', 'marginTop': '0px'})  
@@ -227,11 +228,6 @@ def update_line_chart(tickers, colorblind_mode):
     # Filter the stock data for the selected tickers
     selected_stock_data = {ticker: stock_data[ticker] for ticker in tickers}
     ticker_names = {ticker: ticker_options.get(ticker, ticker) for ticker in tickers}
-
-    if 'colorblind' in colorblind_mode:
-        colors = qualitative.Safe  # Colorblind-friendly palette
-    else:
-        colors = qualitative.Plotly
 
     # Create the figure with the selected stock data
     fig = go.Figure()
@@ -262,9 +258,7 @@ def update_line_chart(tickers, colorblind_mode):
         marker=dict(color='blue', size=8, opacity=0),  # Invisible markers
         hovertemplate="<b>Event:</b><br>%{customdata}<extra></extra>"
     ))
-    
-    bar_color = 'red' if 'colorblind' not in colorblind_mode else colors[-1]
-    
+
     # COVID-19 cases bar chart on secondary y-axis, filtered up to the cutoff date
     filtered_covid_infections = covid_infections[covid_infections.index <= cutoff_date]
     fig.add_trace(go.Bar(
@@ -335,7 +329,7 @@ def calculate_heatmap_data_cached():
     [Input('hover-store', 'data'),
      Input('colorblind-toggle', 'value')]
 )
-def update_heatmap_on_hover(hovered_date_str, colorblind_mode):
+def update_heatmap_on_hover(hovered_date_str):
     # Retrieve precomputed heatmap data to avoid redundant processing
     all_stock_data = calculate_heatmap_data_cached()
     if all_stock_data.empty:
@@ -392,3 +386,6 @@ def update_heatmap_on_hover(hovered_date_str, colorblind_mode):
                 )
 
     return dcc.Graph(figure=heatmap_fig, config={'displayModeBar': False})
+
+if __name__ == '__main__':
+    app.run_server(debug=True)
