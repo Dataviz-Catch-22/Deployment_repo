@@ -5,6 +5,7 @@ This project is a dynamic, interactive dashboard built using [Plotly Dash](https
 ## 🚀 Features
 
 - 📈 Dual-axis line charts for comparing different metrics (Indexed Prices from 100 and Covid-19 Cases in the US)
+- 👁️‍🗨️ Colorblind-friendly design using accessible color palettes
 - 🗓️ Time range from 2019-2022 (the timeline during the pandemic)
 - 🔍 Hover/click interactivity for detailed data inspection
 - 📤 MongoDB integration for real-time data querying
